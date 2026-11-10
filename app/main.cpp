@@ -11,15 +11,35 @@ private:
   float radius_;
   Color colour_;
 
+  void checkBoundaries(float screenWidth, float screenHeight) {
+    if (position_.x - radius_ <= 0) {
+      position_.x = radius_;
+      velocity_.x *= -1;
+    }
+    if (position_.x + radius_ >= screenWidth) {
+      position_.x = screenWidth - radius_;
+      velocity_.x *= -1;
+    }
+    if (position_.y - radius_ <= 0) {
+      position_.y = radius_;
+      velocity_.y *= -1;
+    }
+    if (position_.y + radius_ >= screenHeight) {
+      position_.y = screenHeight - radius_;
+      velocity_.y *= -1;
+    }
+  }
+
 public:
   Particle(Vector2 p, Vector2 v, float r, Color c)
       : position_{p}, velocity_{v}, radius_{r}, colour_{c} {}
 
   void draw() const { DrawCircleV(position_, radius_, colour_); }
 
-  void move() {
+  void move(float screenWidth, float screenHeight) {
     position_.x += velocity_.x;
     position_.y += velocity_.y;
+    checkBoundaries(screenWidth, screenHeight);
   }
 };
 
@@ -56,7 +76,7 @@ int main() {
     ClearBackground(RAYWHITE);
 
     for (auto &particle : particles) {
-      particle.move();
+      particle.move(screenWidth, screenHeight);
       particle.draw();
     }
 

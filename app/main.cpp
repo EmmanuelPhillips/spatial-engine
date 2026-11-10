@@ -1,31 +1,43 @@
 #include <raylib.h>
 
-#include <string>
+#include <iostream>
+
+class Particle {
+private:
+  Vector2 position_;
+  Vector2 velocity_;
+  float radius_;
+  Color colour_;
+
+public:
+  Particle(Vector2 p, Vector2 v, float r, Color c)
+      : position_{p}, velocity_{v}, radius_{r}, colour_{c} {}
+
+  void draw() const { DrawCircleV(position_, radius_, colour_); }
+
+  void move() {
+    position_.x += velocity_.x;
+    position_.y += velocity_.y;
+  }
+};
 
 int main() {
-  InitWindow(1280, 720, "my test window");
+  Particle p1{{100.0, 100.0}, {1.0, -1.0}, 3.0, RED};
+
+  InitWindow(800, 400, "particles are here");
   SetTargetFPS(60);
 
-  const std::string pressed_str{"You press the left mouse button"};
-  const std::string unpressed_str{"You haven't pressed the left mouse button"};
-
-  bool is_active{false};
-
   while (!WindowShouldClose()) {
+    BeginDrawing();
+    ClearBackground(RAYWHITE);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-      is_active = !is_active;
-    }
-
-    if (is_active) {
-      ClearBackground(RED);
-      DrawText(pressed_str.c_str(), 20, 20, 20, WHITE);
-    } else {
-      ClearBackground(WHITE);
-      DrawText(unpressed_str.c_str(), 20, 20, 20, RED);
-    }
+    p1.draw();
+    p1.move();
 
     EndDrawing();
   }
+
+  CloseWindow();
+
   return 0;
 }

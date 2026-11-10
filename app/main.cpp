@@ -1,6 +1,8 @@
 #include <raylib.h>
 
 #include <iostream>
+#include <random>
+#include <vector>
 
 class Particle {
 private:
@@ -22,17 +24,41 @@ public:
 };
 
 int main() {
-  Particle p1{{100.0, 100.0}, {1.0, -1.0}, 3.0, RED};
+  float screenWidth(800.0);
+  float screenHeight(400.0);
 
-  InitWindow(800, 400, "particles are here");
+  InitWindow(screenWidth, screenHeight, "particles are here");
   SetTargetFPS(60);
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
+  std::uniform_real_distribution<float> posX(0.0, screenWidth);
+  std::uniform_real_distribution<float> posY(0.0, screenHeight);
+  std::uniform_real_distribution<float> velX(-2.0, 2.0);
+  std::uniform_real_distribution<float> velY(-2.0, 2.0);
+  std::uniform_real_distribution<float> radius(2.0, 5.0);
+
+  std::vector<Particle> particles;
+  const int numParticles{1000};
+  particles.reserve(numParticles);
+
+  for (int i{0}; i < numParticles; ++i) {
+    Vector2 pos{posX(gen), posY(gen)};
+    Vector2 vel{velX(gen), velY(gen)};
+    float rad{radius(gen)};
+    Color c{RED};
+    particles.emplace_back(pos, vel, rad, c);
+  }
 
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
-    p1.draw();
-    p1.move();
+    for (auto &particle : particles) {
+      particle.move();
+      particle.draw();
+    }
 
     EndDrawing();
   }

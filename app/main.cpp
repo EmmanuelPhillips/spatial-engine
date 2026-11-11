@@ -2,7 +2,9 @@
 #include <raylib.h>
 #include <raymath.h>
 
+#include <array>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <random>
 #include <vector>
@@ -121,14 +123,92 @@ void resolve_collision(Particle &p1, Particle &p2) {
 
 } // namespace Physics
 
+/* QUADTREE
+ * WHAT IT NEEDS
+ * RAYLIB RECTANGLE TO STORE THE BOUNDS
+ * CAPACITY (4-10 TO START, TUNE USING FPS)
+ * CURRENT DEPTH LEVEL (DEFAULT 0)
+ * MAX DEPTH LEVEL (MAYBE 8)
+ * BOOL TO SHOW IF DIVIDED OR NOT
+ * ARRAY OF 4 UNIQUE_PTRS TO CHILD QUADTREE NODES
+ * VECTOR OF ENTRIES (INDEX + POSITION), RESERVE CAPACITY BUT NOT A HARD LIMIT
+ * FUNCTIONALITY NEEDED
+ * INSERT(ENTRY) -> BOOL
+ * OUTSIDE MY BOUNDS: RETURN FALSE
+ * NOT DIVIDED AND (ROOM LEFT OR AT MAX DEPTH): STORE IT, RETURN TRUE
+ * NOT DIVIDED AND FULL: SUBDIVIDE, THEN CARRY ON
+ * DIVIDED: OFFER TO EACH CHILD, RETURN TRUE AT FIRST ACCEPT
+ * SUBDIVIDE()
+ * WORK OUT 4 CHILD RECTANGLES FROM BOUNDS (HALF WIDTH, HALF HEIGHT)
+ * MAKE 4 CHILD NODES WITH DEPTH + 1
+ * SET DIVIDED = TRUE BEFORE RE-INSERTING
+ * RE-INSERT EXISTING ENTRIES INTO CHILDREN, THEN CLEAR MY ENTRIES
+ * QUERY(RANGE, FOUND)
+ * RANGE DOESN'T OVERLAP MY BOUNDS: RETURN
+ * NOT DIVIDED: ADD EVERY ENTRY INSIDE RANGE TO FOUND
+ * DIVIDED: QUERY EACH CHILD
+ */
+
+class Quadtree {
+public:
+  struct Entity {
+    int index;
+    Vector2 position;
+  };
+
+private:
+  Rectangle bounds_;
+  int capacity_;
+  int current_depth_;
+  int max_depth_;
+  bool divided_;
+
+  std::vector<Entity> entities_;
+  std::array<std::unique_ptr<Quadtree>, 4> child_nodes_;
+
+public:
+  Quadtree(Rectangle b, int c = 4, int curr_d = 0, int max_d = 8,
+           bool d = false)
+      : bounds_{b}, capacity_{c}, current_depth_{curr_d}, max_depth_{max_d},
+        divided_{d} {
+    entities_.reserve(capacity_);
+  }
+
+  bool insert(const Entity &e) {
+    if (!CheckCollisionPointRec(e.position, bounds_)) {
+      return false;
+    }
+    if (!divided_ && (static_cast<int>(entities_.size()) < capacity_ ||
+                      current_depth_ >= max_depth_)) {
+      entities_.push_back(e);
+      return true;
+    }
+    if (!divided_ && static_cast<int>(entities_.size()) >= capacity_ &&
+        current_depth_ < max_depth_) {
+      subdivide();
+    }
+    if (divided_) {
+      for (auto &child : child_nodes_) {
+        if (child->insert(e)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  void subdivide() {}
+};
+
 int main() {
-  const float screen_width(800.0f);
-  const float screen_height(400.0f);
+  const float screen_width(1280.0f);
+  const float screen_height(720.0f);
   const float min_velocity(-2.0f);
   const float max_velocity(2.0f);
-  const float min_radius(5.0f);
-  const float max_radius(10.0f);
-  const int num_particles{50};
+  const float min_radius(7.5f);
+  const float max_radius(7.5f);
+  const int num_particles{500};
   const Color particle_colour{RED};
 
   InitWindow(screen_width, screen_height, "particles are here");
@@ -173,6 +253,7 @@ int main() {
       particle.draw();
     }
 
+    DrawFPS(0, 0);
     EndDrawing();
   }
 

@@ -109,12 +109,14 @@ void resolve_velocities(Particle &p1, Particle &p2,
 }
 
 void resolve_collision(Particle &p1, Particle &p2) {
-  auto result{resolve_overlap(p1, p2)};
-  if (!result) {
-    return;
+  if (check_collision(p1, p2)) {
+    auto result{resolve_overlap(p1, p2)};
+    if (!result) {
+      return;
+    }
+    Vector2 unit_normal{result.value()};
+    resolve_velocities(p1, p2, unit_normal);
   }
-  Vector2 unit_normal{result.value()};
-  resolve_velocities(p1, p2, unit_normal);
 }
 
 } // namespace Physics
@@ -163,10 +165,7 @@ int main() {
     }
     for (int i{0}; i < num_particles; ++i) {
       for (int j{i + 1}; j < num_particles; ++j) {
-        // TODO: CALL CHECK_COLLISION WITHIN RESOLVE_COLLISION
-        if (Physics::check_collision(particles[i], particles[j])) {
-          Physics::resolve_collision(particles[i], particles[j]);
-        }
+        Physics::resolve_collision(particles[i], particles[j]);
       }
     }
 

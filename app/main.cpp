@@ -37,8 +37,10 @@ public:
       : position_{p}, velocity_{v}, radius_{r}, colour_{c} {}
 
   Vector2 get_position() const { return position_; }
+  Vector2 get_velocity() const { return velocity_; }
   float get_radius() const { return radius_; }
   void set_position(Vector2 p) { position_ = p; }
+  void set_velocity(Vector2 v) { velocity_ = v; }
 
   void draw() const { DrawCircleV(position_, radius_, colour_); }
 
@@ -61,7 +63,19 @@ bool check_collision(const Particle &p1, const Particle &p2) {
   return distance_squared <= radii_sum_squared;
 }
 
-void resolve_collision(Particle &p1, Particle &p2) {}
+void resolve_collision(Particle &p1, Particle &p2) {
+  float dx{p2.get_position().x - p1.get_position().x};
+  float dy{p2.get_position().y - p1.get_position().y};
+  float distance{std::sqrt(dx * dx + dy * dy)};
+
+  if (distance == 0) {
+    return;
+  }
+
+  float unit_dx{dx / distance};
+  float unit_dy{dy / distance};
+  Vector2 unit_normal{unit_dx, unit_dy};
+}
 } // namespace Physics
 
 int main() {
@@ -69,8 +83,8 @@ int main() {
   const float screen_height(400.0f);
   const float min_velocity(-2.0f);
   const float max_velocity(2.0f);
-  const float min_radius(2.0f);
-  const float max_radius(5.0f);
+  const float min_radius(5.0f);
+  const float max_radius(10.0f);
   const int num_particles{50};
   const Color particle_colour{RED};
 

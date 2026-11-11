@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 class Particle {
@@ -167,10 +168,9 @@ private:
   std::array<std::unique_ptr<Quadtree>, 4> child_nodes_;
 
 public:
-  Quadtree(Rectangle b, int c = 4, int curr_d = 0, int max_d = 8,
-           bool d = false)
+  Quadtree(Rectangle b, int c = 4, int curr_d = 0, int max_d = 8)
       : bounds_{b}, capacity_{c}, current_depth_{curr_d}, max_depth_{max_d},
-        divided_{d} {
+        divided_{false} {
     entities_.reserve(capacity_);
   }
 
@@ -198,7 +198,46 @@ public:
     return false;
   }
 
-  void subdivide() {}
+  void subdivide() {
+    float half_width{bounds_.width / 2.0f};
+    float half_height{bounds_.height / 2.0f};
+    child_nodes_[0] = std::make_unique<Quadtree>(
+        Rectangle{bounds_.x, bounds_.y, half_width, half_height}, capacity_,
+        current_depth_ + 1, max_depth_);
+    child_nodes_[1] = std::make_unique<Quadtree>(
+        Rectangle{bounds_.x + half_width, bounds_.y, half_width, half_height},
+        capacity_, current_depth_ + 1, max_depth_);
+    child_nodes_[2] = std::make_unique<Quadtree>(
+        Rectangle{bounds_.x, bounds_.y + half_height, half_width, half_height},
+        capacity_, current_depth_ + 1, max_depth_);
+    child_nodes_[3] = std::make_unique<Quadtree>(
+        Rectangle{bounds_.x + half_width, bounds_.y + half_height, half_width,
+                  half_height},
+        capacity_, current_depth_ + 1, max_depth_);
+
+    divided_ = true;
+    for (auto &entity : entities_) {
+      insert(entity);
+    }
+    entities_.clear();
+  }
+
+  void query(Rectangle range, std::vector<Entity> &found) const {
+    if (!CheckCollisionRecs(range, bounds_)) {
+      return;
+    }
+    if (divided_) {
+      for (const auto &child : child_nodes_) {
+        child->query(range, found);
+      }
+      return;
+    }
+    for (const auto &entity : entities_) {
+      if (CheckCollisionPointRec(entity.position, range)) {
+        found.push_back(entity);
+      }
+    }
+  }
 };
 
 int main() {

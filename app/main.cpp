@@ -3,6 +3,7 @@
 #include <raymath.h>
 
 #include <iostream>
+#include <optional>
 #include <random>
 #include <vector>
 
@@ -44,7 +45,7 @@ public:
 
   void draw() const { DrawCircleV(position_, radius_, colour_); }
 
-  void move(float screen_width, float screen_height) {
+  void update(float screen_width, float screen_height) {
     position_.x += velocity_.x;
     position_.y += velocity_.y;
     check_boundaries(screen_width, screen_height);
@@ -63,19 +64,59 @@ bool check_collision(const Particle &p1, const Particle &p2) {
   return distance_squared <= radii_sum_squared;
 }
 
-void resolve_collision(Particle &p1, Particle &p2) {
+std::optional<Vector2> resolve_overlap(Particle &p1, Particle &p2) {
   float dx{p2.get_position().x - p1.get_position().x};
   float dy{p2.get_position().y - p1.get_position().y};
   float distance{std::sqrt(dx * dx + dy * dy)};
 
   if (distance == 0) {
-    return;
+    return std::nullopt;
   }
 
   float unit_dx{dx / distance};
   float unit_dy{dy / distance};
   Vector2 unit_normal{unit_dx, unit_dy};
+
+  float touching_distance{p1.get_radius() + p2.get_radius()};
+  float overlap{touching_distance - distance};
+  if (overlap <= 0) {
+    return std::nullopt;
+  }
+  float push{overlap / 2};
+
+  Vector2 push_vector{
+      Vector2{unit_normal.x * push, unit_normal.y * push}}; // vector2scale
+  p1.set_position(Vector2Subtract(p1.get_position(), push_vector));
+  p2.set_position(Vector2Add(p2.get_position(), push_vector));
+
+  return unit_normal;
 }
+
+void resolve_velocities(Particle &p1, Particle &p2,
+                        const Vector2 &unit_normal) {
+  Vector2 p1_velocity{p1.get_velocity()};
+  Vector2 p2_velocity{p2.get_velocity()};
+  Vector2 relative_velocity{Vector2Subtract(p1_velocity, p2_velocity)};
+
+  float approach_speed{Vector2DotProduct(relative_velocity, unit_normal)};
+  if (approach_speed <= 0) {
+    return;
+  }
+
+  Vector2 impulse{Vector2Scale(unit_normal, approach_speed)};
+  p1.set_velocity(Vector2Subtract(p1.get_velocity(), impulse));
+  p2.set_velocity(Vector2Add(p2.get_velocity(), impulse));
+}
+
+void resolve_collision(Particle &p1, Particle &p2) {
+  auto result{resolve_overlap(p1, p2)};
+  if (!result) {
+    return;
+  }
+  Vector2 unit_normal{result.value()};
+  resolve_velocities(p1, p2, unit_normal);
+}
+
 } // namespace Physics
 
 int main() {
@@ -118,10 +159,11 @@ int main() {
     ClearBackground(RAYWHITE);
 
     for (auto &particle : particles) {
-      particle.move(screen_width, screen_height);
+      particle.update(screen_width, screen_height);
     }
     for (int i{0}; i < num_particles; ++i) {
       for (int j{i + 1}; j < num_particles; ++j) {
+        // TODO: CALL CHECK_COLLISION WITHIN RESOLVE_COLLISION
         if (Physics::check_collision(particles[i], particles[j])) {
           Physics::resolve_collision(particles[i], particles[j]);
         }

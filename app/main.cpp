@@ -124,32 +124,6 @@ void resolve_collision(Particle &p1, Particle &p2) {
 
 } // namespace Physics
 
-/* QUADTREE
- * WHAT IT NEEDS
- * RAYLIB RECTANGLE TO STORE THE BOUNDS
- * CAPACITY (4-10 TO START, TUNE USING FPS)
- * CURRENT DEPTH LEVEL (DEFAULT 0)
- * MAX DEPTH LEVEL (MAYBE 8)
- * BOOL TO SHOW IF DIVIDED OR NOT
- * ARRAY OF 4 UNIQUE_PTRS TO CHILD QUADTREE NODES
- * VECTOR OF ENTRIES (INDEX + POSITION), RESERVE CAPACITY BUT NOT A HARD LIMIT
- * FUNCTIONALITY NEEDED
- * INSERT(ENTRY) -> BOOL
- * OUTSIDE MY BOUNDS: RETURN FALSE
- * NOT DIVIDED AND (ROOM LEFT OR AT MAX DEPTH): STORE IT, RETURN TRUE
- * NOT DIVIDED AND FULL: SUBDIVIDE, THEN CARRY ON
- * DIVIDED: OFFER TO EACH CHILD, RETURN TRUE AT FIRST ACCEPT
- * SUBDIVIDE()
- * WORK OUT 4 CHILD RECTANGLES FROM BOUNDS (HALF WIDTH, HALF HEIGHT)
- * MAKE 4 CHILD NODES WITH DEPTH + 1
- * SET DIVIDED = TRUE BEFORE RE-INSERTING
- * RE-INSERT EXISTING ENTRIES INTO CHILDREN, THEN CLEAR MY ENTRIES
- * QUERY(RANGE, FOUND)
- * RANGE DOESN'T OVERLAP MY BOUNDS: RETURN
- * NOT DIVIDED: ADD EVERY ENTRY INSIDE RANGE TO FOUND
- * DIVIDED: QUERY EACH CHILD
- */
-
 class Quadtree {
 public:
   struct Entity {
@@ -247,8 +221,10 @@ int main() {
   const float max_velocity(2.0f);
   const float min_radius(7.5f);
   const float max_radius(7.5f);
-  const int num_particles{500};
+  const int num_particles{2000};
   const Color particle_colour{RED};
+
+  Rectangle screen_bounds{0, 0, screen_width, screen_height};
 
   InitWindow(screen_width, screen_height, "particles are here");
   SetTargetFPS(60);
@@ -271,22 +247,49 @@ int main() {
     Vector2 pos{pos_x(gen), pos_y(gen)};
     Vector2 vel{vel_x(gen), vel_y(gen)};
     float rad{radius(gen)};
-    Color c{particle_colour};
-    particles.emplace_back(pos, vel, rad, c);
+
+    particles.emplace_back(pos, vel, rad, particle_colour);
   }
 
+  std::vector<Quadtree::Entity> candidates;
+
   while (!WindowShouldClose()) {
-    BeginDrawing();
-    ClearBackground(RAYWHITE);
 
     for (auto &particle : particles) {
       particle.update(screen_width, screen_height);
     }
-    for (int i{0}; i < num_particles; ++i) {
-      for (int j{i + 1}; j < num_particles; ++j) {
-        Physics::resolve_collision(particles[i], particles[j]);
+
+    Quadtree tree{screen_bounds};
+
+    for (int i{0}; i < static_cast<int>(particles.size()); ++i) {
+      tree.insert({i, particles[i].get_position()});
+    }
+
+    for (int i{0}; i < static_cast<int>(particles.size()); ++i) {
+
+      Vector2 position{particles[i].get_position()};
+
+      float search_distance{particles[i].get_radius() + max_radius};
+
+      Rectangle search_range{position.x - search_distance,
+                             position.y - search_distance,
+                             search_distance * 2.0f, search_distance * 2.0f};
+
+      candidates.clear();
+      tree.query(search_range, candidates);
+
+      for (const auto &candidate : candidates) {
+
+        if (candidate.index <= i) {
+          continue;
+        }
+
+        Physics::resolve_collision(particles[i], particles[candidate.index]);
       }
     }
+
+    BeginDrawing();
+    ClearBackground(RAYWHITE);
 
     for (const auto &particle : particles) {
       particle.draw();
